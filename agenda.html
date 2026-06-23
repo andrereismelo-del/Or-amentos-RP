@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda de Eventos - Calendário</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-principal: #121214;
+            --bg-card: #1d1d22;
+            --texto-principal: #ffffff;
+            --texto-secundario: #a8a8b3;
+            --gradiente-botao: linear-gradient(90deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);
+            --borda-card: #29292e;
+            --cor-destaque: #4158D0;
+        }
+
+        body {
+            background-color: var(--bg-principal);
+            color: var(--texto-principal);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            display: none;
+        }
+
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg-principal);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+
+        .login-box {
+            background-color: var(--bg-card);
+            border: 1px solid var(--borda-card);
+            padding: 30px; border-radius: 8px;
+            width: 90%; max-width: 360px;
+            display: flex; flex-direction: column; gap: 16px;
+            box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-voltar {
+            background: none; border: none; color: var(--texto-secundario);
+            cursor: pointer; font-size: 16px; display: flex; align-items: center;
+            gap: 8px; margin-bottom: 20px; padding: 0;
+        }
+        .btn-voltar:hover { color: var(--texto-principal); }
+
+        /* CALENDÁRIO VISUAL */
+        .calendario-wrapper {
+            background-color: var(--bg-card);
+            border: 1px solid var(--borda-card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .calendario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendario-header h2 { margin: 0; font-size: 20px; }
+
+        .btn-nav {
+            background: #29292e; border: 1px solid var(--borda-card);
+            color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+        }
+        .btn-nav:hover { background: #323238; }
+
+        .dias-semana {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            text-align: center; font-weight: bold; color: var(--texto-secundario);
+            font-size: 14px; margin-bottom: 10px;
+        }
+
+        .grade-dias {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .dia-celula {
+            aspect-ratio: 1; /* Quadrado perfeito */
+            background-color: var(--bg-principal);
+            border: 1px solid var(--borda-card);
+            border-radius: 8px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            cursor: pointer; font-weight: 500; position: relative;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .dia-celula:hover { transform: scale(1.05); background: #202024; }
+        .dia-vazio { background: transparent; border: none; cursor: default; pointer-events: none; }
+        
+        /* Estilos de Status do Dia */
+        .dia-hoje { border: 2px solid #FFCC70; }
+        .dia-ocupado { 
+            background: var(--gradiente-botao); 
+            color: white; font-weight: bold;
+        }
+        .dia-ocupado::after {
+            content: ''; position: absolute; bottom: 4px; width: 6px; height: 6px;
+            background-color: white; border-radius: 50%;
+        }
+        .dia-selecionado { box-shadow: 0 0 0 3px #ffffff; }
+
+        /* DETALHES DO EVENTO SELECIONADO */
+        .detalhes-container { margin-top: 15px; display: none; }
+
+        .card {
+            background-color: var(--bg-card); border: 1px solid var(--borda-card);
+            border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 6px;
+        }
+        .card-topo { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .nome-cliente { font-size: 18px; font-weight: 600; margin: 4px 0; }
+        .telefone-cliente { font-size: 14px; color: var(--texto-secundario); }
+        .obs-evento { font-size: 14px; color: var(--texto-secundario); background-color: var(--bg-principal); padding: 8px; border-radius: 4px; margin-top: 4px; }
+        
+        .btn-deletar {
+            background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+        }
+        .btn-deletar:hover { background-color: rgba(255, 77, 77, 0.2); }
+
+        /* FORMULÁRIO */
+        form { background: var(--bg-card); border: 1px solid var(--borda-card); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
+        label { font-size: 14px; color: var(--texto-secundario); }
+        input, textarea { background-color: var(--bg-principal); border: 1px solid var(--borda-card); color: var(--texto-principal); padding: 12px; border-radius: 6px; font-size: 16px; outline: none; }
+        button[type="submit"], .btn-login { background: var(--gradiente-botao); color: white; border: none; padding: 14px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-box">
+            <h2>Acesso Restrito</h2>
+            <form id="form-login">
+                <div>
+                    <label for="login-user">Usuário</label>
+                    <input type="text" id="login-user" required style="width: 100%; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label for="login-pass">Senha</label>
+                    <input type="password" id="login-pass" required style="width: 100%; box-sizing: border-box;">
+                </div>
+                <button type="submit" class="btn-login">Entrar na Agenda</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container" id="container-agenda">
+        <button class="btn-voltar" onclick="window.location.href='index.html'">⬅ Voltar para Propostas</button>
+
+        <h1 style="margin-bottom: 5px;">Agenda de Montagens</h1>
+        <p style="color: var(--texto-secundario); margin-bottom: 25px;">Selecione um dia destacado para ver os detalhes do evento.</p>
+
+        <div class="calendario-wrapper">
+            <div class="calendario-header">
+                <button class="btn-nav" id="btn-ant">◀</button>
+                <h2 id="mes-ano-atual">Janeiro 2026</h2>
+                <button class="btn-nav" id="btn-prox">▶</button>
+            </div>
+            <div class="dias-semana">
+                <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+            </div>
+            <div class="grade-dias" id="grade-dias"></div>
+        </div>
+
+        <div class="detalhes-container" id="detalhes-container">
+            <h3 style="margin-bottom: 10px;">Evento no dia <span id="data-selecionada-titulo"></span>:</h3>
+            <div id="evento-detalhe-card"></div>
+        </div>
+
+        <h2 style="margin-top: 30px; margin-bottom: 15px;">Agendar Nova Data</h2>
+        <form id="form-agenda">
+            <div>
+                <label for="data">Data da Montagem</label>
+                <input type="date" id="data" required style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label for="cliente">Nome do Cliente</label>
+                <input type="text" id="cliente" placeholder="Ex: João Silva" required style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label for="telefone">Telefone / WhatsApp</label>
+                <input type="tel" id="telefone" placeholder="Ex: (11) 99999-9999" required style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label for="observacao">Estrutura / Observação</label>
+                <textarea id="observacao" rows="3" placeholder="Ex: Treliça Q20, caixas de som..." style="width: 100%; box-sizing: border-box; resize: none;"></textarea>
+            </div>
+            <button type="submit">Confirmar Agendamento</button>
+        </form>
+    </div>
+
+    <script>
+        const USUARIO_CORRETO = "admin";
+        const SENHA_CORRETA = "montagem2026";
+
+        // CONFIGURAÇÃO OFICIAL DO SEU SUPABASE
+        const SUPABASE_URL = "https://qaawiyurdmranxmdvejz.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_8SQhWTcbq-7pkoBtj8EWCA_hNqRw9GN";
+
+        const meuSupabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const formAgenda = document.getElementById('form-agenda');
+        const formLogin = document.getElementById('form-login');
+        const loginOverlay = document.getElementById('login-overlay');
+        const containerAgenda = document.getElementById('container-agenda');
+        const gradeDias = document.getElementById('grade-dias');
+        const mesAnoTexto = document.getElementById('mes-ano-atual');
+        const detalhesContainer = document.getElementById('detalhes-container');
+        const eventoDetalheCard = document.getElementById('evento-detalhe-card');
+        const dataSelecionadaTitulo = document.getElementById('data-selecionada-titulo');
+
+        let dataControlador = new Date(); // Controla o mês visualizado
+        let listaAgendamentosGlobais = []; // Guarda os dados vindos do Supabase
+
+        const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+        // Validação de Login
+        formLogin.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const userIn = document.getElementById('login-user').value.trim();
+            const passIn = document.getElementById('login-pass').value.trim();
+
+            if (userIn === USUARIO_CORRETO && passIn === SENHA_CORRETA) {
+                sessionStorage.setItem('agenda_logado', 'true');
+                liberarAcesso();
+            } else {
+                alert("Usuário ou senha incorretos!");
+            }
+        });
+
+        function liberarAcesso() {
+            loginOverlay.style.display = 'none';
+            containerAgenda.style.display = 'block';
+            buscarDadosDoSupabase();
+        }
+
+        // Busca dados no Banco
+        async function buscarDadosDoSupabase() {
+            const { data: agendamentos, error } = await meuSupabaseClient
+                .from('agendamentos')
+                .select('*');
+
+            if (error) {
+                console.error("Erro ao buscar dados:", error);
+                return;
+            }
+            listaAgendamentosGlobais = agendamentos;
+            renderizarCalendario();
+        }
+
+        // Monta o Calendário Visual na Tela
+        function renderizarCalendario() {
+            gradeDias.innerHTML = '';
+            detalhesContainer.style.display = 'none'; // Reseta caixa de detalhes
+
+            const ano = dataControlador.getFullYear();
+            const mes = dataControlador.getMonth();
+
+            mesAnoTexto.innerText = `${nomesMeses[mes]} ${ano}`;
+
+            const primeiroDiaSemana = new Date(ano, mes, 1).getDay();
+            const totalDiasNoMes = new Date(ano, mes + 1, 0).getDate();
+            const hoje = new Date();
+
+            // 1. Cria os espaços vazios do início do mês
+            for (let i = 0; i < primeiroDiaSemana; i++) {
+                const vazio = document.createElement('div');
+                vazio.className = 'dia-celula dia-vazio';
+                gradeDias.appendChild(vazio);
+            }
+
+            // 2. Cria os dias numéricos reais
+            for (let dia = 1; dia <= totalDiasNoMes; dia++) {
+                const celula = document.createElement('div');
+                celula.className = 'dia-celula';
+                celula.innerText = dia;
+
+                // Formata data do dia atual do laço no padrão ISO (YYYY-MM-DD)
+                const mesFormatado = String(mes + 1).padStart(2, '0');
+                const diaFormatado = String(dia).padStart(2, '0');
+                const dataStringISO = `${ano}-${mesFormatado}-${diaFormatado}`;
+
+                // Verifica se o dia é hoje
+                if (dia === hoje.getDate() && mes === hoje.getMonth() && ano === hoje.getFullYear()) {
+                    celula.classList.add('dia-hoje');
+                }
+
+                // Procura se tem algum evento agendado para esta data específica
+                const eventoDoDia = listaAgendamentosGlobais.find(item => item.data === dataStringISO);
+
+                if (eventoDoDia) {
+                    celula.classList.add('dia-ocupado');
+                }
+
+                // Evento de clique no dia
+                celula.addEventListener('click', () => {
+                    // Remove destaque de seleção anterior
+                    document.querySelectorAll('.dia-celula').forEach(c => c.classList.remove('dia-selecionado'));
+                    celula.classList.add('dia-selecionado');
+
+                    mostrarDetalhesDoDia(dataStringISO, eventoDoDia);
+                });
+
+                gradeDias.appendChild(celula);
+            }
+        }
+
+        // Mostra o card com as informações logo abaixo ao clicar no dia ocupado
+        function mostrarDetalhesDoDia(dataString, evento) {
+            const [ano, mes, dia] = dataString.split('-');
+            dataSelecionadaTitulo.innerText = `${dia}/${mes}/${ano}`;
+            detalhesContainer.style.display = 'block';
+
+            if (!evento) {
+                eventoDetalheCard.innerHTML = `<p style="color: var(--texto-secundario); padding: 10px; margin: 0;">Nenhum evento agendado para este dia. O horário está livre!</p>`;
+                return;
+            }
+
+            eventoDetalheCard.innerHTML = `
+                <div class="card">
+                    <div class="card-topo">
+                        <span style="color: #4da6ff; font-weight: bold;">🔵 Ocupado</span>
+                        <button class="btn-deletar" onclick="deletarAgendamento(${evento.id})" title="Excluir Agendamento">🗑️ Apagar</button>
+                    </div>
+                    <div class="nome-cliente">${evento.cliente}</div>
+                    <div class="telefone-cliente">📞 Tel: ${evento.telefone}</div>
+                    ${evento.observação ? `<div class="obs-evento"><strong>Estrutura:</strong> ${evento.observação}</div>` : ''}
+                </div>
+            `;
+        }
+
+        // Navegação de Meses
+        document.getElementById('btn-ant').addEventListener('click', () => {
+            dataControlador.setMonth(dataControlador.getMonth() - 1);
+            renderizarCalendario();
+        });
+
+        document.getElementById('btn-prox').addEventListener('click', () => {
+            dataControlador.setMonth(dataControlador.getMonth() + 1);
+            renderizarCalendario();
+        });
+
+        // Formulário de Cadastro
+        formAgenda.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const novoAgendamento = {
+                data: document.getElementById('data').value,
+                cliente: document.getElementById('cliente').value,
+                telefone: document.getElementById('telefone').value,
+                observação: document.getElementById('observacao').value
+            };
+
+            const { error } = await meuSupabaseClient
+                .from('agendamentos')
+                .insert([novoAgendamento]);
+
+            if (error) {
+                alert("Erro ao salvar no banco: " + error.message);
+            } else {
+                formAgenda.reset();
+                alert("Data reservada com sucesso!");
+                buscarDadosDoSupabase(); // Recarrega o calendário atualizado
+            }
+        });
+
+        // Função de Exclusão Direta e Definitiva
+        async function deletarAgendamento(id) {
+            const confirmar = confirm("Tem certeza que deseja apagar definitivamente este evento do calendário?");
+            if (confirmar) {
+                const { error } = await meuSupabaseClient
+                    .from('agendamentos')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    alert("Erro ao deletar: " + error.message);
+                } else {
+                    buscarDadosDoSupabase();
+                }
+            }
+        }
+
+        if (sessionStorage.getItem('agenda_logado') === 'true') {
+            liberarAcesso();
+        }
+    </script>
+</body>
+</html>

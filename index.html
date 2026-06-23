@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RP Audiovisual – Gerador de Orçamento</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131c;
+    --surface2: #1c1c2b;
+    --border: #2a2a40;
+    --purple: #9b5de5;
+    --purple-light: #c77dff;
+    --blue: #4cc9f0;
+    --white: #f0f0ff;
+    --muted: #8888aa;
+    --danger: #ff4d6d;
+    --success: #06d6a0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 0 0 4rem;
+  }
+
+  /* NAVBAR SUPERIOR PREMIUM */
+  .navbar {
+    background: rgba(19, 19, 28, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .nav-logo img {
+    height: 36px;
+    object-fit: contain;
+  }
+  .nav-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #fff, var(--purple-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .btn-agenda-nav {
+    background: transparent;
+    border: 1px solid var(--purple);
+    color: var(--purple-light);
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .btn-agenda-nav:hover {
+    background: var(--purple);
+    color: white;
+    box-shadow: 0 0 15px rgba(155,93,229,0.4);
+  }
+
+  .container { max-width: 860px; margin: 2rem auto 0; padding: 0 1rem; }
+
+  /* SECTIONS */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.8rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .section-title {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--purple-light);
+    margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+
+  /* INPUTS */
+  label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.5px; }
+  input, select, textarea {
+    width: 100%; padding: 0.65rem 0.9rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--white); font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(155,93,229,0.15);
+  }
+  input::placeholder, textarea::placeholder { color: #40405a; }
+
+  /* ITEMS TABLE */
+  .items-header {
+    display: grid;
+    grid-template-columns: 3fr 80px 130px 120px 40px;
+    gap: 0.5rem;
+    padding: 0 0 0.5rem;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+  }
+  .item-row {
+    display: grid;
+    grid-template-columns: 3fr 80px 130px 120px 40px;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.6rem;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+  .item-total {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.65rem 0.9rem;
+    color: var(--success); font-weight: 600; font-size: 0.88rem;
+  }
+  .btn-remove {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--danger); border-radius: 8px; width: 36px; height: 36px;
+    cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .btn-remove:hover { background: rgba(255,77,109,0.15); }
+
+  /* TOTAL BAR */
+  .total-bar {
+    background: linear-gradient(135deg, rgba(155,93,229,0.15), rgba(76,201,240,0.1));
+    border: 1px solid var(--purple);
+    border-radius: 12px; padding: 1.2rem 1.8rem;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 1.2rem;
+  }
+  .total-bar .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; }
+  .total-bar .amount {
+    font-size: 1.8rem; font-weight: 800;
+    background: linear-gradient(90deg, var(--purple-light), var(--blue));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .total-bar .sinal { font-size: 0.8rem; color: var(--muted); text-align: right; }
+  .total-bar .sinal span { display: block; color: var(--purple-light); font-weight: 600; }
+
+  /* BUTTONS */
+  .actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; flex-wrap: wrap; }
+  .btn-add {
+    background: transparent; border: 1px dashed var(--purple);
+    color: var(--purple-light); padding: 0.6rem 1.2rem; border-radius: 8px;
+    cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: background 0.2s;
+  }
+  .btn-add:hover { background: rgba(155,93,229,0.1); }
+  
+  .btn-pdf {
+    background: linear-gradient(135deg, var(--purple), #7b2ff7);
+    color: white; border: none; padding: 0.8rem 2.4rem;
+    border-radius: 10px; font-size: 1rem; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.5px;
+    box-shadow: 0 4px 20px rgba(155,93,229,0.4);
+    transition: all 0.2s;
+  }
+  .btn-pdf:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(155,93,229,0.5); }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .items-header, .item-row { grid-template-columns: 2fr 60px 100px 90px 36px; }
+    .total-bar { flex-direction: column; gap: 0.5rem; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-logo">
+    <img id="imgLogoApp" src="logo.png" alt="RP" onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='flex'">
+    <div id="fallback-logo" style="display:none; width:32px; height:32px; background:linear-gradient(135deg, var(--purple), var(--blue)); border-radius:8px; align-items:center; justify-content:center; font-weight:900; font-size:12px;">RP</div>
+    <span class="nav-title">RP Audiovisual</span>
+  </div>
+  <button class="btn-agenda-nav" onclick="window.open('agenda.html','_blank')">
+    📅 Ver Agenda de Montagens
+  </button>
+</nav>
+
+<div class="container">
+
+  <div class="section">
+    <div class="section-title">Dados do Cliente</div>
+    <div class="grid-2" style="gap:1rem;margin-bottom:1rem;">
+      <div>
+        <label>Nome do Cliente</label>
+        <input id="clientName" type="text" value="Danieli Gomes" placeholder="Nome completo">
+      </div>
+      <div>
+        <label>Telefone / WhatsApp</label>
+        <input id="clientPhone" type="text" placeholder="(45) 99999-9999">
+      </div>
+    </div>
+    <div class="grid-3" style="gap:1rem;">
+      <div>
+        <label>Tipo do Evento</label>
+        <input id="eventType" type="text" value="Chá Revelação" placeholder="Ex: Casamento, Formatura">
+      </div>
+      <div>
+        <label>Data do Evento</label>
+        <input id="eventDate" type="text" value="05 de julho de 2026" placeholder="DD/MM/AAAA">
+      </div>
+      <div>
+        <label>Local do Evento</label>
+        <input id="eventLocation" type="text" placeholder="Endereço ou nome do espaço">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parâmetros do Orçamento & Taxas</div>
+    <div class="grid-4" style="gap:1rem;">
+      <div>
+        <label>⏱ Duração (horas)</label>
+        <input id="eventDuration" type="number" value="4" min="1" step="1">
+      </div>
+      <div>
+        <label>💰 Hora Extra (R$)</label>
+        <input id="extraHourPrice" type="number" value="200" min="0" step="10">
+      </div>
+      <div>
+        <label>💳 Acréscimo Cartão (%)</label>
+        <input id="taxaCartao" type="number" value="10" min="0" step="0.5" oninput="recalcTotals()">
+      </div>
+      <div>
+        <label>📉 Valor de Entrada (%)</label>
+        <input id="taxaSinal" type="number" value="50" min="0" max="100" step="5" oninput="recalcTotals()">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Itens do Orçamento</div>
+
+    <div class="items-header">
+      <span>Descrição</span>
+      <span>Qtd</span>
+      <span>Valor Unit.</span>
+      <span>Total</span>
+      <span></span>
+    </div>
+
+    <div id="itemsList"></div>
+
+    <button class="btn-add" onclick="addItem()">+ Adicionar Item</button>
+
+    <div class="total-bar">
+      <div>
+        <div class="label">Valor Total (Pix / Dinheiro)</div>
+        <div class="amount" id="grandTotal">R$ 0,00</div>
+      </div>
+      <div class="sinal">
+        <div class="label" id="lblCartao" style="color:var(--blue)">Cartão (+10%)</div>
+        <span id="cardTotal" style="color:var(--blue)">R$ 0,00</span>
+      </div>
+      <div class="sinal">
+        <div class="label" id="lblSinal">Entrada (50%)</div>
+        <span id="sinalValue">R$ 0,00</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Observações adicionais</div>
+    <textarea id="obsExtra" rows="3" placeholder="Informações adicionais para constar no orçamento (opcional)..."></textarea>
+  </div>
+
+  <div class="actions">
+    <button class="btn-pdf" onclick="gerarPDF()">
+      📄 Gerar PDF Profissional
+    </button>
+  </div>
+
+</div>
+
+<script>
+  let items = [];
+  let nextId = 1;
+
+  const defaultItems = [
+    { desc: 'Kit Sonorização — 2 Torres de Som + 2 Microfones Sem Fio', qty: 1, unit: 0 },
+    { desc: 'Iluminação Cênica — ParLed, Moving Heads, Strobo e Máquina de Fumaça', qty: 1, unit: 0 },
+    { desc: 'Kit Revelação — Estouro, Fumaça Colorida e Faísca', qty: 1, unit: 0 },
+  ];
+
+  function init() {
+    defaultItems.forEach(d => addItem(d));
+    renderItems();
+  }
+
+  function addItem(preset) {
+    const id = nextId++;
+    items.push({
+      id,
+      desc: preset ? preset.desc : '',
+      qty: preset ? preset.qty : 1,
+      unit: preset ? preset.unit : 0
+    });
+    renderItems();
+  }
+
+  function removeItem(id) {
+    items = items.filter(i => i.id !== id);
+    renderItems();
+  }
+
+  function updateItem(id, field, value) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    if (field === 'qty') item.qty = parseInt(value) || 0;
+    recalcTotals();
+  }
+
+  function recalcTotals() {
+    let grand = 0;
+    items.forEach(item => {
+      const total = item.qty * item.unit;
+      grand += total;
+      const el = document.getElementById('total-' + item.id);
+      if (el) el.textContent = fmt(total);
+    });
+
+    const valTaxaCartao = parseFloat(document.getElementById('taxaCartao').value) || 0;
+    const valTaxaSinal = parseFloat(document.getElementById('taxaSinal').value) || 0;
+
+    document.getElementById('lblCartao').textContent = `Cartão (+${valTaxaCartao}%)`;
+    document.getElementById('lblSinal').textContent = `Entrada (${valTaxaSinal}%)`;
+
+    document.getElementById('grandTotal').textContent = fmt(grand);
+    document.getElementById('cardTotal').textContent = fmt(grand * (1 + (valTaxaCartao / 100)));
+    document.getElementById('sinalValue').textContent = fmt(grand * (valTaxaSinal / 100));
+  }
+
+  function renderItems() {
+    const list = document.getElementById('itemsList');
+    list.innerHTML = '';
+
+    items.forEach(item => {
+      const total = item.qty * item.unit;
+      const row = document.createElement('div');
+      row.className = 'item-row';
+
+      const descInput = document.createElement('input');
+      descInput.type = 'text';
+      descInput.value = item.desc;
+      descInput.placeholder = 'Descrição do serviço';
+      descInput.addEventListener('input', e => { item.desc = e.target.value; });
+
+      const qtyInput = document.createElement('input');
+      qtyInput.type = 'number';
+      qtyInput.value = item.qty;
+      qtyInput.min = 1;
+      qtyInput.style.textAlign = 'center';
+      qtyInput.addEventListener('change', e => updateItem(item.id, 'qty', e.target.value));
+
+      const unitInput = document.createElement('input');
+      unitInput.type = 'text';
+      unitInput.inputMode = 'decimal';
+      unitInput.value = item.unit > 0 ? String(item.unit).replace('.', ',') : '';
+      unitInput.placeholder = '0,00';
+      unitInput.addEventListener('input', e => {
+        const raw = e.target.value.replace(',', '.');
+        item.unit = parseFloat(raw) || 0;
+        recalcTotals();
+      });
+
+      const totalDiv = document.createElement('div');
+      totalDiv.className = 'item-total';
+      totalDiv.id = 'total-' + item.id;
+      totalDiv.textContent = fmt(total);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn-remove';
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', () => removeItem(item.id));
+
+      row.appendChild(descInput);
+      row.appendChild(qtyInput);
+      row.appendChild(unitInput);
+      row.appendChild(totalDiv);
+      row.appendChild(removeBtn);
+      list.appendChild(row);
+    });
+
+    recalcTotals();
+  }
+
+  function fmt(n) {
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  // Auxiliar para processar imagem da logo nativamente no PDF
+  function obterLogoBase64(imgElement) {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = imgElement.naturalWidth;
+      canvas.height = imgElement.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(imgElement, 0, 0);
+      return canvas.toDataURL("image/png");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ── GERADOR DE PDF REAL COM LOGO DA PASTA ──
+  async function gerarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+    const W = 210, margin = 18;
+    const purple = [155, 93, 229];
+    const blue = [76, 201, 240];
+    const dark = [10, 10, 20];
+    const darkSurface = [19, 19, 28];
+    const lightGray = [220, 220, 235];
+    const white = [255, 255, 255];
+    const successGreen = [6, 214, 160];
+
+    const valTaxaCartao = parseFloat(document.getElementById('taxaCartao').value) || 0;
+    const valTaxaSinal = parseFloat(document.getElementById('taxaSinal').value) || 0;
+
+    doc.setFillColor(...dark);
+    doc.rect(0, 0, 210, 297, 'F');
+
+    doc.setFillColor(...purple);
+    doc.rect(0, 0, 210, 1.5, 'F');
+
+    doc.setFillColor(...darkSurface);
+    doc.roundedRect(margin, 10, W - margin * 2, 38, 4, 4, 'F');
+
+    // CONVERSÃO E FILTRAGEM DA LOGO DINÂMICA
+    const imgEl = document.getElementById('imgLogoApp');
+    const logoBase64 = obterLogoBase64(imgEl);
+
+    if (logoBase64 && imgEl.style.display !== 'none') {
+      // Desenha a logo real trazida da sua pasta
+      doc.addImage(logoBase64, 'PNG', margin + 6, 14, 24, 24);
+    } else {
+      // Fallback elegante caso a imagem falhe
+      doc.setFillColor(...purple);
+      doc.roundedRect(margin + 6, 16, 20, 20, 3, 3, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(...white);
+      doc.text('RP', margin + 16, 29, { align: 'center' });
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.setTextColor(...white);
+    doc.text('RP Audiovisual', margin + 34, 24);
+    doc.setFontSize(8);
+    doc.setTextColor(...lightGray);
+    doc.text('Som • Iluminação e Estrutura para Eventos', margin + 34, 30);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...blue);
+    doc.text('ORÇAMENTO', W - margin - 6, 22, { align: 'right' });
+    doc.setFontSize(6);
+    doc.setTextColor(...lightGray);
+    const now = new Date();
+    doc.text('Emitido em: ' + now.toLocaleDateString('pt-BR'), W - margin - 6, 27, { align: 'right' });
+    const validade = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    doc.text('Válido até: ' + validade.toLocaleDateString('pt-BR'), W - margin - 6, 32, { align: 'right' });
+
+    let y = 56;
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...white);
+    doc.text('ORÇAMENTO DE SERVIÇOS', W / 2, y, { align: 'center' });
+    doc.setDrawColor(...purple);
+    doc.setLineWidth(0.5);
+    doc.line(W / 2 - 35, y + 2, W / 2 + 35, y + 2);
+
+    y += 12;
+    doc.setFillColor(...darkSurface);
+    doc.roundedRect(margin, y, W - margin * 2, 36, 3, 3, 'F');
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...purple);
+    doc.text('DADOS DO CLIENTE', margin + 6, y + 7);
+    doc.setDrawColor(50, 50, 80);
+    doc.setLineWidth(0.3);
+    doc.line(margin + 38, y + 5.5, W - margin - 6, y + 5.5);
+
+    const cname = document.getElementById('clientName').value;
+    const cphone = document.getElementById('clientPhone').value;
+    const etype = document.getElementById('eventType').value;
+    const edate = document.getElementById('eventDate').value;
+    const eloc = document.getElementById('eventLocation').value;
+
+    const clientFields = [
+      ['Nome', cname], ['Telefone', cphone],
+      ['Tipo de Evento', etype], ['Data', edate], ['Local', eloc]
+    ];
+    const colW = (W - margin * 2 - 12) / 3;
+    clientFields.forEach(([label, val], i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const cx = margin + 6 + col * colW;
+      const cy = y + 14 + row * 12;
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(130, 130, 170);
+      doc.text(label.toUpperCase(), cx, cy);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...white);
+      doc.text(val || '—', cx, cy + 5);
+    });
+
+    y += 44;
+    doc.setFillColor(40, 20, 80);
+    doc.roundedRect(margin, y, W - margin * 2, 18, 2, 2, 'F');
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...purple);
+    doc.text('FORMAS DE PAGAMENTO', margin + 6, y + 6);
+    doc.setDrawColor(60, 30, 110);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 6, y + 7.5, W - margin - 6, y + 7.5);
+
+    doc.setFillColor(30, 12, 70);
+    doc.roundedRect(margin + 6, y + 9, 72, 7, 1.5, 1.5, 'F');
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 180);
+    doc.text('PIX / DINHEIRO', margin + 10, y + 13);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(6, 214, 160);
+    doc.text('Conforme detalhado no encerramento', margin + 10, y + 15.5);
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 180);
+    const eventDuration = document.getElementById('eventDuration').value || '4';
+    const extraHourPrice = parseFloat(document.getElementById('extraHourPrice').value) || 200;
+    doc.text('Duração: ' + eventDuration + 'h  •  Hora excedente: ' + fmt(extraHourPrice), W - margin - 6, y + 13.5, { align: 'right' });
+
+    y += 24;
+    const tableData = items.map(item => [
+      item.desc,
+      item.qty,
+      fmt(item.unit),
+      fmt(item.qty * item.unit)
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['DESCRIÇÃO DO SERVIÇO', 'QTD', 'VALOR UNIT.', 'TOTAL']],
+      body: tableData,
+      margin: { left: margin, right: margin },
+      styles: {
+        fillColor: darkSurface,
+        textColor: white,
+        fontSize: 8.5,
+        cellPadding: 4,
+        lineColor: [40, 40, 60],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: [30, 10, 60],
+        textColor: blue,
+        fontSize: 7,
+        fontStyle: 'bold',
+        halign: 'left',
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 16, halign: 'center' },
+        2: { cellWidth: 36, halign: 'right' },
+        3: { cellWidth: 36, halign: 'right', textColor: successGreen, fontStyle: 'bold' },
+      },
+      alternateRowStyles: { fillColor: [22, 22, 38] },
+      theme: 'grid',
+    });
+
+    y = doc.lastAutoTable.finalY + 4;
+
+    const grandTotal = items.reduce((acc, i) => acc + i.qty * i.unit, 0);
+    const cardTotal = grandTotal * (1 + (valTaxaCartao / 100));
+    const sinal = grandTotal * (valTaxaSinal / 100);
+
+    doc.setFillColor(40, 15, 90);
+    doc.roundedRect(margin, y, W - margin * 2, 26, 3, 3, 'F');
+    doc.setDrawColor(...purple);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, y, W - margin * 2, 26, 3, 3, 'S');
+
+    doc.setDrawColor(60, 30, 110);
+    doc.setLineWidth(0.3);
+    doc.line(W / 2, y + 4, W / 2, y + 22);
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 180);
+    doc.text('VALOR TOTAL — PIX / DINHEIRO', margin + 8, y + 8);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(6, 214, 160);
+    doc.text(fmt(grandTotal), margin + 8, y + 17);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 180);
+    doc.text(`Sinal de Entrada (${valTaxaSinal}%): ` + fmt(sinal), margin + 8, y + 23);
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 180);
+    doc.text(`CARTÃO EM ATÉ 4× (+${valTaxaCartao}%)`, W / 2 + 6, y + 8);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...blue);
+    doc.text(fmt(cardTotal), W / 2 + 6, y + 17);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 180);
+    doc.text(`Sinal de Entrada (${valTaxaSinal}%): ` + fmt(cardTotal * (valTaxaSinal / 100)), W / 2 + 6, y + 23);
+
+    y += 34;
+    const drawInfoBox = (title, lines, color, yStart) => {
+      const lineH = 5.5;
+      const boxH = 10 + lines.length * lineH;
+      doc.setFillColor(...darkSurface);
+      doc.roundedRect(margin, yStart, W - margin * 2, boxH, 3, 3, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...color);
+      doc.text(title, margin + 6, yStart + 7);
+      doc.setDrawColor(...color);
+      doc.setLineWidth(0.25);
+      doc.line(margin + 6, yStart + 9, W - margin - 6, yStart + 9);
+      lines.forEach((line, i) => {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...lightGray);
+        doc.text(line, margin + 8, yStart + 14 + i * lineH);
+      });
+      return yStart + boxH + 4;
+    };
+
+    y = drawInfoBox('CONDIÇÕES DE PAGAMENTO', [
+      `• ${valTaxaSinal}% do valor total no ato da contratação para reserva da data e equipamentos.`,
+      `• Os ${100 - valTaxaSinal}% restantes deverão ser quitados até a data do evento.`,
+    ], purple, y);
+
+    y = drawInfoBox('OBSERVAÇÕES', [
+      '• Este orçamento possui validade de 7 dias.',
+      '• A reserva da data somente será efetivada após o pagamento do sinal.',
+      '• Alterações no escopo do evento poderão gerar revisão dos valores.',
+    ], blue, y);
+
+    const obsExtra = document.getElementById('obsExtra').value.trim();
+    if (obsExtra) {
+      y = drawInfoBox('OBSERVAÇÕES ADICIONAIS', [obsExtra], lightGray, y);
+    }
+
+    doc.setFillColor(...darkSurface);
+    doc.rect(0, 280, 210, 17, 'F');
+    doc.setFillColor(...purple);
+    doc.rect(0, 295, 210, 2, 'F');
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...white);
+    doc.text('Obrigado por escolher a RP Audiovisual.', W / 2, 288, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...blue);
+    doc.text('Som • Luz • Emoção', W / 2, 293, { align: 'center' });
+
+    const nomeCliente = document.getElementById('clientName').value.replace(/\s+/g, '_') || 'Cliente';
+    doc.save(`Orcamento_RP_Audiovisual_${nomeCliente}.pdf`);
+  }
+
+  // Inicializa o script
+  window.onload = function() {
+    init();
+  };
+</script>
+</body>
+</html>
