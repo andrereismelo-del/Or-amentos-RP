@@ -14,6 +14,7 @@
             --gradiente-botao: linear-gradient(90deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);
             --borda-card: #29292e;
             --cor-destaque: #4158D0;
+            --blue-link: #4cc9f0;
         }
 
         body {
@@ -94,7 +95,7 @@
         }
 
         .dia-celula {
-            aspect-ratio: 1; /* Quadrado perfeito */
+            aspect-ratio: 1;
             background-color: var(--bg-principal);
             border: 1px solid var(--borda-card);
             border-radius: 8px;
@@ -106,7 +107,6 @@
         .dia-celula:hover { transform: scale(1.05); background: #202024; }
         .dia-vazio { background: transparent; border: none; cursor: default; pointer-events: none; }
         
-        /* Estilos de Status do Dia */
         .dia-hoje { border: 2px solid #FFCC70; }
         .dia-ocupado { 
             background: var(--gradiente-botao); 
@@ -118,7 +118,7 @@
         }
         .dia-selecionado { box-shadow: 0 0 0 3px #ffffff; }
 
-        /* DETALHES DO EVENTO SELECIONADO */
+        /* DETALHES DO EVENTO */
         .detalhes-container { margin-top: 15px; display: none; }
 
         .card {
@@ -130,6 +130,28 @@
         .telefone-cliente { font-size: 14px; color: var(--texto-secundario); }
         .obs-evento { font-size: 14px; color: var(--texto-secundario); background-color: var(--bg-principal); padding: 8px; border-radius: 4px; margin-top: 4px; }
         
+        .btn-ver-pdf {
+            background: rgba(76, 201, 240, 0.15);
+            border: 1px solid var(--blue-link);
+            color: var(--blue-link);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+        .btn-ver-pdf:hover {
+            background: var(--blue-link);
+            color: #000;
+        }
+
         .btn-deletar {
             background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px;
         }
@@ -139,7 +161,9 @@
         form { background: var(--bg-card); border: 1px solid var(--borda-card); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
         label { font-size: 14px; color: var(--texto-secundario); }
         input, textarea { background-color: var(--bg-principal); border: 1px solid var(--borda-card); color: var(--texto-principal); padding: 12px; border-radius: 6px; font-size: 16px; outline: none; }
+        input[type="file"] { padding: 8px; font-size: 14px; }
         button[type="submit"], .btn-login { background: var(--gradiente-botao); color: white; border: none; padding: 14px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -196,13 +220,17 @@
             </div>
             <div>
                 <label for="telefone">Telefone / WhatsApp</label>
-                <input type="tel" id="telefone" placeholder="Ex: (11) 99999-9999" required style="width: 100%; box-sizing: border-box;">
+                <input type="text" id="telefone" placeholder="Ex: (45) 99999-9999" required style="width: 100%; box-sizing: border-box;">
             </div>
             <div>
                 <label for="observacao">Estrutura / Observação</label>
                 <textarea id="observacao" rows="3" placeholder="Ex: Treliça Q20, caixas de som..." style="width: 100%; box-sizing: border-box; resize: none;"></textarea>
             </div>
-            <button type="submit">Confirmar Agendamento</button>
+            <div>
+                <label for="pdf-proposta">📁 Anexar PDF da Proposta/Contrato (Opcional)</label>
+                <input type="file" id="pdf-proposta" accept=".pdf" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <button type="submit" id="btn-submit-agenda">Confirmar Agendamento</button>
         </form>
     </div>
 
@@ -210,7 +238,6 @@
         const USUARIO_CORRETO = "admin";
         const SENHA_CORRETA = "montagem2026";
 
-        // CONFIGURAÇÃO OFICIAL DO SEU SUPABASE
         const SUPABASE_URL = "https://qaawiyurdmranxmdvejz.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_8SQhWTcbq-7pkoBtj8EWCA_hNqRw9GN";
 
@@ -225,13 +252,13 @@
         const detalhesContainer = document.getElementById('detalhes-container');
         const eventoDetalheCard = document.getElementById('evento-detalhe-card');
         const dataSelecionadaTitulo = document.getElementById('data-selecionada-titulo');
+        const btnSubmitAgenda = document.getElementById('btn-submit-agenda');
 
-        let dataControlador = new Date(); // Controla o mês visualizado
-        let listaAgendamentosGlobais = []; // Guarda os dados vindos do Supabase
+        let dataControlador = new Date();
+        let listaAgendamentosGlobais = [];
 
         const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
-        // Validação de Login
         formLogin.addEventListener('submit', function(e) {
             e.preventDefault();
             const userIn = document.getElementById('login-user').value.trim();
@@ -251,7 +278,6 @@
             buscarDadosDoSupabase();
         }
 
-        // Busca dados no Banco
         async function buscarDadosDoSupabase() {
             const { data: agendamentos, error } = await meuSupabaseClient
                 .from('agendamentos')
@@ -265,10 +291,9 @@
             renderizarCalendario();
         }
 
-        // Monta o Calendário Visual na Tela
         function renderizarCalendario() {
             gradeDias.innerHTML = '';
-            detalhesContainer.style.display = 'none'; // Reseta caixa de detalhes
+            detalhesContainer.style.display = 'none';
 
             const ano = dataControlador.getFullYear();
             const mes = dataControlador.getMonth();
@@ -279,42 +304,34 @@
             const totalDiasNoMes = new Date(ano, mes + 1, 0).getDate();
             const hoje = new Date();
 
-            // 1. Cria os espaços vazios do início do mês
             for (let i = 0; i < primeiroDiaSemana; i++) {
                 const vazio = document.createElement('div');
                 vazio.className = 'dia-celula dia-vazio';
                 gradeDias.appendChild(vazio);
             }
 
-            // 2. Cria os dias numéricos reais
             for (let dia = 1; dia <= totalDiasNoMes; dia++) {
                 const celula = document.createElement('div');
                 celula.className = 'dia-celula';
                 celula.innerText = dia;
 
-                // Formata data do dia atual do laço no padrão ISO (YYYY-MM-DD)
                 const mesFormatado = String(mes + 1).padStart(2, '0');
                 const diaFormatado = String(dia).padStart(2, '0');
                 const dataStringISO = `${ano}-${mesFormatado}-${diaFormatado}`;
 
-                // Verifica se o dia é hoje
                 if (dia === hoje.getDate() && mes === hoje.getMonth() && ano === hoje.getFullYear()) {
                     celula.classList.add('dia-hoje');
                 }
 
-                // Procura se tem algum evento agendado para esta data específica
                 const eventoDoDia = listaAgendamentosGlobais.find(item => item.data === dataStringISO);
 
                 if (eventoDoDia) {
                     celula.classList.add('dia-ocupado');
                 }
 
-                // Evento de clique no dia
                 celula.addEventListener('click', () => {
-                    // Remove destaque de seleção anterior
                     document.querySelectorAll('.dia-celula').forEach(c => c.classList.remove('dia-selecionado'));
                     celula.classList.add('dia-selecionado');
-
                     mostrarDetalhesDoDia(dataStringISO, eventoDoDia);
                 });
 
@@ -322,7 +339,6 @@
             }
         }
 
-        // Mostra o card com as informações logo abaixo ao clicar no dia ocupado
         function mostrarDetalhesDoDia(dataString, evento) {
             const [ano, mes, dia] = dataString.split('-');
             dataSelecionadaTitulo.innerText = `${dia}/${mes}/${ano}`;
@@ -337,16 +353,21 @@
                 <div class="card">
                     <div class="card-topo">
                         <span style="color: #4da6ff; font-weight: bold;">🔵 Ocupado</span>
-                        <button class="btn-deletar" onclick="deletarAgendamento(${evento.id})" title="Excluir Agendamento">🗑️ Apagar</button>
+                        <button class="btn-deletar" onclick="deletarAgendamento(${evento.id}, '${evento.pdf_url || ''}')" title="Excluir Agendamento">🗑️ Apagar</button>
                     </div>
                     <div class="nome-cliente">${evento.cliente}</div>
                     <div class="telefone-cliente">📞 Tel: ${evento.telefone}</div>
                     ${evento.observação ? `<div class="obs-evento"><strong>Estrutura:</strong> ${evento.observação}</div>` : ''}
+                    
+                    ${evento.pdf_url ? `
+                        <a href="${evento.pdf_url}" target="_blank" class="btn-ver-pdf">
+                            📄 Ver Proposta Anexa
+                        </a>
+                    ` : ''}
                 </div>
             `;
         }
 
-        // Navegação de Meses
         document.getElementById('btn-ant').addEventListener('click', () => {
             dataControlador.setMonth(dataControlador.getMonth() - 1);
             renderizarCalendario();
@@ -357,34 +378,89 @@
             renderizarCalendario();
         });
 
-        // Formulário de Cadastro
+        // Formulário de Cadastro com Upload de PDF para o Storage
         formAgenda.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            btnSubmitAgenda.disabled = true;
+            btnSubmitAgenda.innerText = "Processando agendamento...";
 
+            const dataInput = document.getElementById('data').value;
+            const clienteInput = document.getElementById('cliente').value;
+            const telefoneInput = document.getElementById('telefone').value;
+            const observacaoInput = document.getElementById('observacao').value;
+            const fileInput = document.getElementById('pdf-proposta');
+
+            let urlDoPDF = null;
+
+            // Se o usuário selecionou um arquivo PDF, faz o upload primeiro
+            if (fileInput.files.length > 0) {
+                const arquivo = fileInput.files[0];
+                // Cria um nome limpo e único baseado no timestamp do relógio
+                const extensao = arquivo.name.split('.').pop();
+                const nomeUnicoArquivo = `${Date.now()}_${clienteInput.replace(/\s+/g, '_')}.${extensao}`;
+
+                // Envia o arquivo para o bucket público 'propostas'
+                const { data: uploadData, error: uploadError } = await meuSupabaseClient
+                    .storage
+                    .from('propostas')
+                    .upload(nomeUnicoArquivo, arquivo);
+
+                if (uploadError) {
+                    alert("Erro ao subir arquivo PDF: " + uploadError.message);
+                    btnSubmitAgenda.disabled = false;
+                    btnSubmitAgenda.innerText = "Confirmar Agendamento";
+                    return;
+                }
+
+                // Captura a URL pública definitiva do arquivo carregado
+                const { data: urlData } = meuSupabaseClient
+                    .storage
+                    .from('propostas')
+                    .getPublicUrl(nomeUnicoArquivo);
+
+                urlDoPDF = urlData.publicUrl;
+            }
+
+            // Insere o registro completo na tabela com o link do PDF
             const novoAgendamento = {
-                data: document.getElementById('data').value,
-                cliente: document.getElementById('cliente').value,
-                telefone: document.getElementById('telefone').value,
-                observação: document.getElementById('observacao').value
+                data: dataInput,
+                cliente: clienteInput,
+                telefone: telefoneInput,
+                observação: observacaoInput,
+                pdf_url: urlDoPDF
             };
 
             const { error } = await meuSupabaseClient
                 .from('agendamentos')
                 .insert([novoAgendamento]);
 
+            btnSubmitAgenda.disabled = false;
+            btnSubmitAgenda.innerText = "Confirmar Agendamento";
+
             if (error) {
                 alert("Erro ao salvar no banco: " + error.message);
             } else {
                 formAgenda.reset();
                 alert("Data reservada com sucesso!");
-                buscarDadosDoSupabase(); // Recarrega o calendário atualizado
+                buscarDadosDoSupabase();
             }
         });
 
-        // Função de Exclusão Direta e Definitiva
-        async function deletarAgendamento(id) {
+        // Função de Exclusão com limpeza do arquivo no Storage
+        async function deletarAgendamento(id, pdfUrl) {
             const confirmar = confirm("Tem certeza que deseja apagar definitivamente este evento do calendário?");
             if (confirmar) {
+                // Se o evento possuía PDF, tenta apagar do Storage também
+                if (pdfUrl) {
+                    try {
+                        const nomeArquivoNoStorage = pdfUrl.split('/').pop();
+                        await meuSupabaseClient.storage.from('propostas').remove([nomeArquivoNoStorage]);
+                    } catch(e) {
+                        console.error("Não foi possível remover o arquivo físico do storage:", e);
+                    }
+                }
+
                 const { error } = await meuSupabaseClient
                     .from('agendamentos')
                     .delete()
