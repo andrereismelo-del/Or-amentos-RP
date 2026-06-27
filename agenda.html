@@ -12,6 +12,7 @@
             --texto-principal: #ffffff;
             --texto-secundario: #a8a8b3;
             --gradiente-botao: linear-gradient(90deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);
+            --gradiente-edicao: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
             --borda-card: #29292e;
             --cor-destaque: #4158D0;
             --blue-link: #4cc9f0;
@@ -152,8 +153,12 @@
             color: #000;
         }
 
+        .botoes-acoes { display: flex; gap: 10px; }
+        .btn-editar { background: none; border: none; font-size: 15px; color: #38ef7d; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        .btn-editar:hover { background-color: rgba(56, 239, 125, 0.15); }
+
         .btn-deletar {
-            background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+            background: none; border: none; font-size: 15px; cursor: pointer; padding: 4px 8px; border-radius: 4px; color: #ff4d4d;
         }
         .btn-deletar:hover { background-color: rgba(255, 77, 77, 0.2); }
 
@@ -162,7 +167,9 @@
         label { font-size: 14px; color: var(--texto-secundario); }
         input, textarea { background-color: var(--bg-principal); border: 1px solid var(--borda-card); color: var(--texto-principal); padding: 12px; border-radius: 6px; font-size: 16px; outline: none; }
         input[type="file"] { padding: 8px; font-size: 14px; }
-        button[type="submit"], .btn-login { background: var(--gradiente-botao); color: white; border: none; padding: 14px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+        
+        button[type="submit"], .btn-login { background: var(--gradiente-botao); color: white; border: none; padding: 14px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; transition: background 0.3s; }
+        button[type="submit"].modo-edicao { background: var(--gradiente-edicao); color: #121214; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
@@ -208,7 +215,7 @@
             <div id="evento-detalhe-card"></div>
         </div>
 
-        <h2 style="margin-top: 30px; margin-bottom: 15px;">Agendar Nova Data</h2>
+        <h2 id="titulo-formulario" style="margin-top: 30px; margin-bottom: 15px;">Agendar Nova Data</h2>
         <form id="form-agenda">
             <div>
                 <label for="data">Data da Montagem</label>
@@ -229,6 +236,7 @@
             <div>
                 <label for="pdf-proposta">📁 Anexar PDF da Proposta/Contrato (Opcional)</label>
                 <input type="file" id="pdf-proposta" accept=".pdf" style="width: 100%; box-sizing: border-box;">
+                <p id="aviso-pdf-atual" style="font-size: 13px; color: #38ef7d; margin: 4px 0 0 0; display: none;">💡 Este evento já possui um PDF. Selecione outro arquivo apenas se quiser substituí-lo.</p>
             </div>
             <button type="submit" id="btn-submit-agenda">Confirmar Agendamento</button>
         </form>
@@ -253,9 +261,15 @@
         const eventoDetalheCard = document.getElementById('evento-detalhe-card');
         const dataSelecionadaTitulo = document.getElementById('data-selecionada-titulo');
         const btnSubmitAgenda = document.getElementById('btn-submit-agenda');
+        const tituloFormulario = document.getElementById('titulo-formulario');
+        const avisoPdfAtual = document.getElementById('aviso-pdf-atual');
 
         let dataControlador = new Date();
         let listaAgendamentosGlobais = [];
+        
+        // Armazena o ID do agendamento quando estamos editando
+        let idAgendamentoEmEdicao = null; 
+        let urlPdfExistenteEmEdicao = null;
 
         const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -294,6 +308,7 @@
         function renderizarCalendario() {
             gradeDias.innerHTML = '';
             detalhesContainer.style.display = 'none';
+            resetarModoFormulario();
 
             const ano = dataControlador.getFullYear();
             const mes = dataControlador.getMonth();
@@ -346,14 +361,22 @@
 
             if (!evento) {
                 eventoDetalheCard.innerHTML = `<p style="color: var(--texto-secundario); padding: 10px; margin: 0;">Nenhum evento agendado para este dia. O horário está livre!</p>`;
+                resetarModoFormulario();
+                document.getElementById('data').value = dataString;
                 return;
             }
+
+            // Transforma o objeto do evento em string de forma segura para passar no onclick
+            const eventoString = encodeURIComponent(JSON.stringify(evento));
 
             eventoDetalheCard.innerHTML = `
                 <div class="card">
                     <div class="card-topo">
                         <span style="color: #4da6ff; font-weight: bold;">🔵 Ocupado</span>
-                        <button class="btn-deletar" onclick="deletarAgendamento(${evento.id}, '${evento.pdf_url || ''}')" title="Excluir Agendamento">🗑️ Apagar</button>
+                        <div class="botoes-acoes">
+                            <button class="btn-editar" onclick="entrarEmModoEdicao('${eventoString}')">✏️ Editar</button>
+                            <button class="btn-deletar" onclick="deletarAgendamento(${evento.id}, '${evento.pdf_url || ''}')" title="Excluir Agendamento">🗑️ Apagar</button>
+                        </div>
                     </div>
                     <div class="nome-cliente">${evento.cliente}</div>
                     <div class="telefone-cliente">📞 Tel: ${evento.telefone}</div>
@@ -368,6 +391,42 @@
             `;
         }
 
+        // Preenche o formulário com os dados existentes para edição
+        function entrarEmModoEdicao(eventoStringJson) {
+            const evento = JSON.parse(decodeURIComponent(eventoStringJson));
+            
+            idAgendamentoEmEdicao = evento.id;
+            urlPdfExistenteEmEdicao = evento.pdf_url;
+
+            tituloFormulario.innerText = "✏️ Editando Agendamento";
+            btnSubmitAgenda.innerText = "Salvar Alterações (Modo Edição)";
+            btnSubmitAgenda.classList.add('modo-edicao');
+
+            document.getElementById('data').value = evento.data;
+            document.getElementById('cliente').value = evento.cliente;
+            document.getElementById('telefone').value = evento.telefone;
+            document.getElementById('observacao').value = evento.observação || "";
+            
+            if (evento.pdf_url) {
+                avisoPdfAtual.style.display = "block";
+            } else {
+                avisoPdfAtual.style.display = "none";
+            }
+
+            // Desce a tela suavemente até o formulário
+            formAgenda.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function resetarModoFormulario() {
+            idAgendamentoEmEdicao = null;
+            urlPdfExistenteEmEdicao = null;
+            tituloFormulario.innerText = "Agendar Nova Data";
+            btnSubmitAgenda.innerText = "Confirmar Agendamento";
+            btnSubmitAgenda.classList.remove('modo-edicao');
+            avisoPdfAtual.style.display = "none";
+            formAgenda.reset();
+        }
+
         document.getElementById('btn-ant').addEventListener('click', () => {
             dataControlador.setMonth(dataControlador.getMonth() - 1);
             renderizarCalendario();
@@ -378,12 +437,12 @@
             renderizarCalendario();
         });
 
-        // Formulário de Cadastro com Upload de PDF para o Storage
+        // Formulário único responsável tanto por Criar (Insert) quanto por Editar (Update)
         formAgenda.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             btnSubmitAgenda.disabled = true;
-            btnSubmitAgenda.innerText = "Processando agendamento...";
+            btnSubmitAgenda.innerText = "Processando informações...";
 
             const dataInput = document.getElementById('data').value;
             const clienteInput = document.getElementById('cliente').value;
@@ -391,29 +450,26 @@
             const observacaoInput = document.getElementById('observacao').value;
             const fileInput = document.getElementById('pdf-proposta');
 
-            let urlDoPDF = null;
+            let urlDoPDF = idAgendamentoEmEdicao ? urlPdfExistenteEmEdicao : null;
 
-            // Se o usuário selecionou um arquivo PDF, faz o upload primeiro
+            // Se o usuário escolheu um novo PDF, faz upload
             if (fileInput.files.length > 0) {
                 const arquivo = fileInput.files[0];
-                // Cria um nome limpo e único baseado no timestamp do relógio
                 const extensao = arquivo.name.split('.').pop();
                 const nomeUnicoArquivo = `${Date.now()}_${clienteInput.replace(/\s+/g, '_')}.${extensao}`;
 
-                // Envia o arquivo para o bucket público 'propostas'
                 const { data: uploadData, error: uploadError } = await meuSupabaseClient
                     .storage
                     .from('propostas')
                     .upload(nomeUnicoArquivo, arquivo);
 
                 if (uploadError) {
-                    alert("Erro ao subir arquivo PDF: " + uploadError.message);
+                    alert("Erro ao subir novo arquivo PDF: " + uploadError.message);
                     btnSubmitAgenda.disabled = false;
-                    btnSubmitAgenda.innerText = "Confirmar Agendamento";
+                    btnSubmitAgenda.innerText = idAgendamentoEmEdicao ? "Salvar Alterações (Modo Edição)" : "Confirmar Agendamento";
                     return;
                 }
 
-                // Captura a URL pública definitiva do arquivo carregado
                 const { data: urlData } = meuSupabaseClient
                     .storage
                     .from('propostas')
@@ -422,8 +478,7 @@
                 urlDoPDF = urlData.publicUrl;
             }
 
-            // Insere o registro completo na tabela com o link do PDF
-            const novoAgendamento = {
+            const dadosDoAgendamento = {
                 data: dataInput,
                 cliente: clienteInput,
                 telefone: telefoneInput,
@@ -431,33 +486,47 @@
                 pdf_url: urlDoPDF
             };
 
-            const { error } = await meuSupabaseClient
-                .from('agendamentos')
-                .insert([novoAgendamento]);
+            if (idAgendamentoEmEdicao !== null) {
+                // MODO EDIÇÃO: Executa o UPDATE no banco filtrando pelo id
+                const { error } = await meuSupabaseClient
+                    .from('agendamentos')
+                    .update(dadosDoAgendamento)
+                    .eq('id', idAgendamentoEmEdicao);
+
+                if (error) {
+                    alert("Erro ao atualizar dados: " + error.message);
+                } else {
+                    alert("Agendamento atualizado com sucesso!");
+                    resetarModoFormulario();
+                    buscarDadosDoSupabase();
+                }
+            } else {
+                // MODO CRIAÇÃO: Executa o INSERT normal
+                const { error } = await meuSupabaseClient
+                    .from('agendamentos')
+                    .insert([dadosDoAgendamento]);
+
+                if (error) {
+                    alert("Erro ao salvar no banco: " + error.message);
+                } else {
+                    alert("Data reservada com sucesso!");
+                    resetarModoFormulario();
+                    buscarDadosDoSupabase();
+                }
+            }
 
             btnSubmitAgenda.disabled = false;
-            btnSubmitAgenda.innerText = "Confirmar Agendamento";
-
-            if (error) {
-                alert("Erro ao salvar no banco: " + error.message);
-            } else {
-                formAgenda.reset();
-                alert("Data reservada com sucesso!");
-                buscarDadosDoSupabase();
-            }
         });
 
-        // Função de Exclusão com limpeza do arquivo no Storage
         async function deletarAgendamento(id, pdfUrl) {
             const confirmar = confirm("Tem certeza que deseja apagar definitivamente este evento do calendário?");
             if (confirmar) {
-                // Se o evento possuía PDF, tenta apagar do Storage também
                 if (pdfUrl) {
                     try {
                         const nomeArquivoNoStorage = pdfUrl.split('/').pop();
                         await meuSupabaseClient.storage.from('propostas').remove([nomeArquivoNoStorage]);
                     } catch(e) {
-                        console.error("Não foi possível remover o arquivo físico do storage:", e);
+                        console.error("Não foi possível remover o arquivo do storage:", e);
                     }
                 }
 
